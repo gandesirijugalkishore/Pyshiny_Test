@@ -63,6 +63,14 @@ class State:
 
 def agent_dropdown():
     state = me.state(State)
+
+    # Define the "New Chat" button
+    me.button(
+        label="New Chat",
+        on_click=lambda: print("New Chat button clicked"),
+        style=me.Style(margin=me.Margin(top=20))
+    )
+
     me.select(
         label="Select Agent",
         options=[
@@ -75,11 +83,24 @@ def agent_dropdown():
         value=state.selected_agent,
     )
 
+    # Define the "Clear Chat" button towards the right of the chat
+    me.button(
+        label="Clear Chat",
+        on_click=clear_chat,
+        # style=me.Style(margin=me.Margin(top=20, left='auto'), float='right')
+    )
+
 def on_agent_select(event: RadioChangeEvent):
     state = me.state(State)
     state.selected_agent = event.value  # Update selected_agent in state
     state.output = [] # Clear chat history when agent is changed.
     print(f"Selected agent: {state.selected_agent}") # For debugging
+
+def clear_chat():
+    # Implement the logic to clear the chat
+    state = me.state(State)
+    state.output = []
+    print("Chat cleared")
 
 def on_load(e: me.LoadEvent):
   me.set_theme_mode("system")
