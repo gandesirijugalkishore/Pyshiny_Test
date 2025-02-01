@@ -63,14 +63,6 @@ class State:
 
 def agent_dropdown():
     state = me.state(State)
-
-    # Define the "New Chat" button
-    me.button(
-        label="New Chat",
-        on_click=lambda: print("New Chat button clicked"),
-        style=me.Style(margin=me.Margin(top=20))
-    )
-
     me.select(
         label="Select Agent",
         options=[
@@ -83,12 +75,6 @@ def agent_dropdown():
         value=state.selected_agent,
     )
 
-    # Define the "Clear Chat" button towards the right of the chat
-    me.button(
-        label="Clear Chat",
-        on_click=clear_chat,
-        # style=me.Style(margin=me.Margin(top=20, left='auto'), float='right')
-    )
 
 def on_agent_select(event: RadioChangeEvent):
     state = me.state(State)
@@ -96,7 +82,7 @@ def on_agent_select(event: RadioChangeEvent):
     state.output = [] # Clear chat history when agent is changed.
     print(f"Selected agent: {state.selected_agent}") # For debugging
 
-def clear_chat():
+def clear_chat(event: me.ClickEvent):
     # Implement the logic to clear the chat
     state = me.state(State)
     state.output = []
@@ -247,6 +233,16 @@ def header():
         else "Light mode",
         on_click=on_click_theme_brightness,
       )
+      icon_button(
+        icon="trash",
+        tooltip="Clear Chat",
+        on_click=clear_chat,
+      )
+    #   me.button(
+    #             label="Clear Chat",
+    #             on_click=clear_chat,
+    #             style=me.Style(margin=me.Margin(left=10))
+    #         )
 
 
 def examples_pane():
@@ -254,7 +250,7 @@ def examples_pane():
     style=me.Style(
       margin=me.Margin.symmetric(horizontal="auto"),
       padding=me.Padding.all(15),
-      width=f"min({_CHAT_MAX_WIDTH}, 100%)",
+      width=f"min(10, 100%)",
     )
   ):
     with me.box(style=me.Style(margin=me.Margin(top=25), font_size=24)):
@@ -367,57 +363,61 @@ def bot_message(*, message_index: int, message: ChatMessage):
 
 
 def chat_input():
-  state = me.state(State)
-  with me.box(
-    style=me.Style(
-      background=me.theme_var("surface-container")
-      if _is_mobile()
-      else me.theme_var("surface-container"),
-      border_radius=16,
-      display="flex",
-      margin=me.Margin.symmetric(horizontal="auto", vertical=15),
-      padding=me.Padding.all(8),
-      width=f"min({_CHAT_MAX_WIDTH}, 90%)",
-    )
-  ):
+    state = me.state(State)
     with me.box(
-      style=me.Style(
-        flex_grow=1,
-      )
-    ):
-      me.native_textarea(
-        autosize=True,
-        key="chat_input",
-        min_rows=4,
-        on_blur=on_chat_input,
-        shortcuts={
-          me.Shortcut(shift=True, key="Enter"): on_submit_chat_msg,
-        },
-        placeholder="Enter your prompt",
         style=me.Style(
-          background=me.theme_var("surface-container")
-          if _is_mobile()
-          else me.theme_var("surface-container"),
-          border=me.Border.all(
-            me.BorderSide(style="none"),
-          ),
-          color=me.theme_var("on-surface-variant"),
-          outline="none",
-          overflow_y="auto",
-          padding=me.Padding(top=16, left=16),
-          width="100%",
-        ),
-        value=state.input,
-      )
-    with me.content_button(
-      disabled=state.in_progress,
-      on_click=on_click_submit_chat_msg,
-      type="icon",
+            background=me.theme_var("surface-container")
+            if _is_mobile()
+            else me.theme_var("surface-container"),
+            border_radius=16,
+            display="flex",
+            margin=me.Margin.symmetric(horizontal="auto", vertical=15),
+            padding=me.Padding.all(8),
+            width=f"min({_CHAT_MAX_WIDTH}, 90%)",
+        )
     ):
-      me.icon("send")
-
-
-@me.component
+        with me.box(
+            style=me.Style(
+                flex_grow=1,
+            )
+        ):
+            me.native_textarea(
+                autosize=True,
+                key="chat_input",
+                min_rows=4,
+                on_blur=on_chat_input,
+                shortcuts={
+                    me.Shortcut(shift=True, key="Enter"): on_submit_chat_msg,
+                },
+                placeholder="Enter your prompt",
+                style=me.Style(
+                    background=me.theme_var("surface-container")
+                    if _is_mobile()
+                    else me.theme_var("surface-container"),
+                    border=me.Border.all(
+                        me.BorderSide(style="none"),
+                    ),
+                    color=me.theme_var("on-surface-variant"),
+                    outline="none",
+                    overflow_y="auto",
+                    padding=me.Padding(top=16, left=16, bottom=16, right=16),
+                    width="100%",
+                ),
+                value=state.input,
+            )
+        with me.content_button(
+            disabled=state.in_progress,
+            on_click=on_click_submit_chat_msg,
+            type="icon",
+        ):
+            me.icon("send")
+        icon_button(
+            icon="delete",
+            tooltip="Clear Chat",
+            on_click=clear_chat,  # Call the optimized clear_chat function
+        )
+        
+me.component
 def text_avatar(*, label: str, background: str, color: str):
   me.text(
     label,
