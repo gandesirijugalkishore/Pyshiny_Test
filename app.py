@@ -1,84 +1,59 @@
 from shiny import App, ui, reactive, render
-import httpx
+from google.cloud import bigquery
+from google.genai import Client
+from google.genai.types import GenerateContentConfig
 
-# Define the user interface
-app_ui = ui.page_fluid(
-    ui.layout_sidebar(
-        ui.sidebar(
-            ui.h3("Select Agent"),
-            ui.input_select(
-                "agent", "Choose an agent to chat with:",
-                choices=["PSUMS Agent", "Front Desk Agent"],
-                selected="PSUMS Agent"
-            ),
-            style="height: 100px;"  # Sidebar is static, no scrolling
-        ),
-        ui.card(
-            ui.h3("Chat Area"),
-            ui.output_text("selected_agent_heading"),
-            ui.chat_ui(id="chat_psums"),
-            style="overflow-y: auto; height: 100vh; padding: 10px; border: 1px solid #ccc;"
-        )
-    )
+BIGQUERY_DATASET_ID = "thelook_ecommerce"
+MODEL_ID = "gemini-1.5-pro"
+LOCATION = "us-central1"
+
+app_ui = ui.page_fillable(
+    ui.panel_title("SQL Talk with BigQuery (Mock UI)"),
+    ui.markdown(
+        """
+        ## Sample Questions
+        - What is the total revenue for the last quarter?
+        - How many users signed up in the last month?
+        - What are the top 5 products by sales?
+        """
+    ),
+    ui.chat_ui("chat"),
+    fillable_mobile=True,
 )
 
-# Define the server logic
+welcome = ui.markdown(
+    """
+    Ask me about information in the database...
+    """
+)
+
 def server(input, output, session):
-    chat_psums = ui.Chat(id="chat_psums")
-    chat_frontdesk = ui.Chat(id="chat_frontdesk")
-    fastapi_url = "http://127.0.0.1:8000/"  # FastAPI backend URL
-    print("HELLO")
+    chat = ui.Chat(id="chat", messages=[welcome])
+    client = Client()
 
-    @reactive.Calc
-    def current_chat():
-        """Switch between chats based on selected agent."""
-        if input.agent() == "PSUMS Agent":
-            return chat_psums
-        else:
-            return chat_frontdesk
+    @chat.on_user_submit
+    async def _():
+        user_prompt = chat.user_input()
 
-    @reactive.Effect
-    def update_chat():
-        """Handle user submissions and provide responses dynamically."""
-        current = current_chat()
-        print("Attaching on_user_submit event to current chat:", current)
+        if user_prompt: # Check for empty input
+            await chat.append_message({"author": "user", "content": user_prompt})
 
-        @current.on_user_submit
-        async def _():
-            print("on_user_submit event triggered")
-            # Get messages currently in the chat
-            messages = current.messages()
-            print("Received Messages:", messages)
-            if not messages:
-                return
+            prompt = user_prompt + """
+                Please give a concise, high-level summary followed by detail in
+                plain language about where the information in your response is
+                coming from in the database. Only use information that you learn
+                from BigQuery, do not make up information.
+                """
 
-            user_message = messages[-1]["content"]  # Get the last user message
-            print("Last User Message:", user_message)
+            response = client.generate_content(
+                model=MODEL_ID,
+                config=GenerateContentConfig(temperature=0),
+                prompt=prompt
+            )
 
-            # Send user message to FastAPI backend and get a response
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(f"{fastapi_url}/process", json={"message": user_message})
-                    print("API Response Status:", response.status_code)
+            gemini_response = response.candidates[0].content
 
-                    if response.status_code == 200:
-                        response_message = response.json().get("reply", "No response from server.")
-                        print("Response Message:", response_message)
-                        # Append the response into the chat
-                        await current.append_message({"role": "system", "content": response_message})
-                    else:
-                        error_message = "Error communicating with backend."
-                        print(error_message)
-                        await current.append_message({"role": "system", "content": error_message})
-                except Exception as e:
-                    print("Request Error:", e)
-                    await current.append_message({"role": "system", "content": f"Request failed: {e}"})
-            
-    @output
-    @render.text
-    def selected_agent_heading():
-        """Display the selected agent."""
-        return f"Chatting with {input.agent()}"
+            await chat.append_message({"author": "ai", "content": gemini_response})
+            chat.clear_user_input()  # Clear input box
 
-# Create the app instance
 app = App(app_ui, server)
